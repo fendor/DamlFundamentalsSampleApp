@@ -1,73 +1,11 @@
 module Main where
 
-type ProjectIdeaId = ContractId ProjectIdea
-type ProjectId = ContractId Project
-
-template ProjectIdea
-    with
-        employee : Party
-        colleague : Party
-        manager : Party
-        project : Text
-        note : Text
-    where 
-        signatory employee
-        observer colleague, manager
-
-        -- employee can propose a project idea 
-        choice Propose : ProjectIdeaId -- "ProjectIdeaId" replaces "ContractId ProjectIdea"
-            controller employee
-            do
-                create this
-
-        -- upon getting rejected, employee can revise the project idea
-        choice Revise : ProjectIdeaId
-            with
-                newProject : Text
-                newNote : Text 
-            controller employee
-            do
-                create this with
-                    project = newProject
-                    note = newNote
-
-        -- manager can reject the project idea
-        choice Reject : ProjectIdeaId 
-            with
-                feedback : Text
-            controller manager
-            do
-                create this with 
-                    note = feedback 
-        
-        -- manager can accept the project idea, which will archive the project that the choice is being exercised and create a new contract
-        choice Accept : ProjectId
-            controller manager
-            do
-                create Project with
-                    employeeInContract = employee
-                    managerInContract = manager
-                    projectTitle = project 
-                    description = note 
-
-template Project
-    with 
-        employeeInContract : Party
-        managerInContract : Party
-        projectTitle : Text 
-        description : Text 
-    where
-        signatory employeeInContract, managerInContract
-
-data Sex = Male | Female deriving (Show, Eq, Ord, Enum)
-
 template GuineaPig 
   with
     name: Text
     id: Text
     ancestorId: Optional Text
     owner: Party
-    sex: Sex
   where
     signatory owner
     key (owner, id): (Party, Text)
@@ -94,7 +32,6 @@ template GuineaPig
     nonconsuming choice UnexpectedOffspring: ContractId GuineaPig
       with
         animalName: Text
-        animalSex: Sex
         animalId: Text
       controller owner
       do
@@ -102,7 +39,6 @@ template GuineaPig
           id = animalId
           name = animalName
           ancestorId = Some this.id
-          sex = animalSex
           owner = this.owner
 
 template CoupleRequest
@@ -152,7 +88,6 @@ template Couple
       with
         animalName: Text
         newId : Text
-        animalSex : Sex
       controller owner1, owner2
       do
         (_, ancestor) <- fetchByKey @GuineaPig (owner1, animal1)
@@ -161,7 +96,6 @@ template Couple
           id = newId
           ancestorId = Some ancestor.id
           owner = owner1
-          sex = animalSex
 
     -- Either owner may break up the couple
     choice SplitUp1: ()
@@ -174,49 +108,3 @@ template Couple
       controller owner2
       do
         return ()
-
-template PurchaseOffer
-  with
-    oldOwner: Party
-    newOwner: Party
-    amount: Decimal
-    animalId: Text
-  where
-    signatory newOwner
-    observer oldOwner, newOwner
-
-    choice ProposePurchase: ContractId PurchaseOffer
-      controller newOwner
-      do
-        create this
-
-    choice AcceptPurchase: (ContractId Receipt, ContractId GuineaPig)
-      controller oldOwner
-      do
-        receipt <- create Receipt with
-          owner = this.newOwner
-          oldOwner = this.oldOwner
-          amount = this.amount 
-          animalId = this.animalId
-
-        (oldGuineaPig, _) <- fetchByKey @GuineaPig (oldOwner, animalId)
-
-        guineaPig <- exercise oldGuineaPig ChangeOwner with
-          newOwner = this.newOwner
-
-        return (receipt, guineaPig)
-    
-    choice RefusePurchase: ()
-      controller oldOwner
-      do
-        return ()
-
-template Receipt
-  with
-    owner: Party
-    oldOwner : Party
-    amount: Decimal
-    animalId: Text
-  where
-    signatory oldOwner
-    observer oldOwner, owner

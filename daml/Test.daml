@@ -2,28 +2,31 @@ module Test where
 import Main
 import Daml.Script
 
-setup : Script ProjectId
-setup = do 
-    alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-    bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
-    charlie <- allocatePartyWithHint "Charlie" (PartyIdHint "Charlie")
+setup : Script ()
+setup = undefined
 
-    bobProjectIdea <- submit bob do
-        createCmd ProjectIdea with
-            employee = bob
-            colleague = charlie
-            manager = alice
-            project = "Daml Fundamentals Certification Capstone Rubric - Draft No. 1"
-            note = "Should include both backend AND frontend"
 
-    aliceRejects <- submit alice do 
-        exerciseCmd bobProjectIdea Reject with
-            feedback = "No way, teaching frontend at this point is too much"
+-- do 
+--     alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+--     bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+--     charlie <- allocatePartyWithHint "Charlie" (PartyIdHint "Charlie")
+
+--     bobProjectIdea <- submit bob do
+--         createCmd ProjectIdea with
+--             employee = bob
+--             colleague = charlie
+--             manager = alice
+--             project = "Daml Fundamentals Certification Capstone Rubric - Draft No. 1"
+--             note = "Should include both backend AND frontend"
+
+--     aliceRejects <- submit alice do 
+--         exerciseCmd bobProjectIdea Reject with
+--             feedback = "No way, teaching frontend at this point is too much"
     
-    bobRevises <- submit bob do
-        exerciseCmd aliceRejects Revise with
-            newProject = "Daml Fundamentals Certification Capstone Rubric - Draft No.2"
-            newNote = "Agreed, let's focus on the Daml backend and Navigator"
+--     bobRevises <- submit bob do
+--         exerciseCmd aliceRejects Revise with
+--             newProject = "Daml Fundamentals Certification Capstone Rubric - Draft No.2"
+--             newNote = "Agreed, let's focus on the Daml backend and Navigator"
 
-    submit alice do
-        exerciseCmd bobRevises Accept
+--     submit alice do
+--         exerciseCmd bobRevises Accept
