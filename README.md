@@ -1,4 +1,4 @@
-# Daml Fundamentals Certificate Sample App
+ # Daml Fundamentals Certificate Sample App
 
 ✨ Welcome to the Daml Fundamentals Certification Sample App! ✨
 

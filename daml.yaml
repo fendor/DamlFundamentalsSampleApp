@@ -1,4 +1,4 @@
-sdk-version: 2.5.3
+sdk-version: 2.6.1
 name: ProjectProposalApp
 source: daml
 init-script: Test:setup

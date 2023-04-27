@@ -58,3 +58,165 @@ template Project
         description : Text 
     where
         signatory employeeInContract, managerInContract
+
+data Sex = Male | Female deriving (Show, Eq, Ord, Enum)
+
+template GuineaPig 
+  with
+    name: Text
+    id: Text
+    ancestorId: Optional Text
+    owner: Party
+    sex: Sex
+  where
+    signatory owner
+    key (owner, id): (Party, Text)
+    maintainer key._1
+
+    choice PassedAway: ()
+      controller
+        owner
+      do
+        return ()
+
+    choice ChangeOwner: ContractId GuineaPig
+      with 
+        newOwner: Party
+      controller
+        owner
+      do
+        create this with
+          owner = newOwner
+    
+    -- GuineaPigs are notouriously quick in producing offspring.
+    -- We didn't pay enough attention, and suddenly, there is new offspring!
+    -- But we don't know both parents, just one.
+    nonconsuming choice UnexpectedOffspring: ContractId GuineaPig
+      with
+        animalName: Text
+        animalSex: Sex
+        animalId: Text
+      controller owner
+      do
+        create GuineaPig with
+          id = animalId
+          name = animalName
+          ancestorId = Some this.id
+          sex = animalSex
+          owner = this.owner
+
+template CoupleRequest
+  with
+    animal1: Text
+    animal2: Text
+    owner1: Party
+    owner2: Party
+
+  where
+    signatory owner1
+    observer owner1, owner2
+
+    ensure animal1 /= animal2
+
+    choice AcceptCoupleRequest: ContractId Couple
+      controller
+        owner2
+      do
+        create Couple with
+          ..
+
+    choice RefuseCoupleRequest: ()
+      controller
+        owner2
+      do
+        return ()
+    
+    choice AbortCoupleRequest: ()
+      controller
+        owner1
+      do
+        return ()
+
+template Couple
+  with
+    animal1: Text
+    animal2: Text
+    owner1: Party
+    owner2: Party
+  where
+    signatory owner1, owner2
+    observer owner1, owner2
+    ensure animal1 /= animal2
+
+    nonconsuming choice CreateOffspring: ContractId GuineaPig
+      with
+        animalName: Text
+        newId : Text
+        animalSex : Sex
+      controller owner1, owner2
+      do
+        (_, ancestor) <- fetchByKey @GuineaPig (owner1, animal1)
+        create GuineaPig with
+          name = animalName
+          id = newId
+          ancestorId = Some ancestor.id
+          owner = owner1
+          sex = animalSex
+
+    -- Either owner may break up the couple
+    choice SplitUp1: ()
+      controller owner1
+      do
+        return ()
+
+    -- Either owner may break up the couple
+    choice SplitUp2: ()
+      controller owner2
+      do
+        return ()
+
+template PurchaseOffer
+  with
+    oldOwner: Party
+    newOwner: Party
+    amount: Decimal
+    animalId: Text
+  where
+    signatory newOwner
+    observer oldOwner, newOwner
+
+    choice ProposePurchase: ContractId PurchaseOffer
+      controller newOwner
+      do
+        create this
+
+    choice AcceptPurchase: (ContractId Receipt, ContractId GuineaPig)
+      controller oldOwner
+      do
+        receipt <- create Receipt with
+          owner = this.newOwner
+          oldOwner = this.oldOwner
+          amount = this.amount 
+          animalId = this.animalId
+
+        (oldGuineaPig, _) <- fetchByKey @GuineaPig (oldOwner, animalId)
+
+        guineaPig <- exercise oldGuineaPig ChangeOwner with
+          newOwner = this.newOwner
+
+        return (receipt, guineaPig)
+    
+    choice RefusePurchase: ()
+      controller oldOwner
+      do
+        return ()
+
+template Receipt
+  with
+    owner: Party
+    oldOwner : Party
+    amount: Decimal
+    animalId: Text
+  where
+    signatory oldOwner
+    observer oldOwner, owner
