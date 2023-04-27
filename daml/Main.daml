@@ -6,22 +6,18 @@ template GuineaPig
     id: Text
     ancestorId: Optional Text
     owner: Party
+    public: Party
   where
     signatory owner
+    observer owner, public
     key (owner, id): (Party, Text)
     maintainer key._1
-
-    choice PassedAway: ()
-      controller
-        owner
-      do
-        return ()
 
     choice ChangeOwner: ContractId GuineaPig
       with 
         newOwner: Party
       controller
-        owner
+        owner, newOwner
       do
         create this with
           owner = newOwner
@@ -33,6 +29,7 @@ template GuineaPig
       with
         animalName: Text
         animalId: Text
+        public: Party
       controller owner
       do
         create GuineaPig with
@@ -40,7 +37,11 @@ template GuineaPig
           name = animalName
           ancestorId = Some this.id
           owner = this.owner
+          public
 
+-- guinea pigs need to be paired to produce proper offspring.
+-- Guinea pigs are not monogamous, so each guinea pig may be part of multiple couples
+-- all the time.
 template CoupleRequest
   with
     animal1: Text
@@ -52,12 +53,22 @@ template CoupleRequest
     signatory owner1
     observer owner1, owner2
 
+    -- a guinea pig cannot be a couple by itself
     ensure animal1 /= animal2
+
+    choice ProposeCoupleRequest: ContractId CoupleRequest
+      controller owner1
+      do 
+        create this
 
     choice AcceptCoupleRequest: ContractId Couple
       controller
         owner2
       do
+        -- Let's make sure both guinea pigs actually exist and belong
+        -- to the linked owners.
+        fetchByKey @GuineaPig (owner1, animal1)
+        fetchByKey @GuineaPig (owner2, animal2)
         create Couple with
           ..
 
@@ -73,6 +84,7 @@ template CoupleRequest
       do
         return ()
 
+-- Once we have a couple, they may produce offspring.
 template Couple
   with
     animal1: Text
@@ -87,15 +99,19 @@ template Couple
     nonconsuming choice CreateOffspring: ContractId GuineaPig
       with
         animalName: Text
-        newId : Text
+        animalId : Text
+        public: Party
       controller owner1, owner2
       do
+        -- both animals need to exist and be alive
         (_, ancestor) <- fetchByKey @GuineaPig (owner1, animal1)
+        fetchByKey @GuineaPig (owner2, animal2)
         create GuineaPig with
           name = animalName
-          id = newId
+          id = animalId
           ancestorId = Some ancestor.id
           owner = owner1
+          public
 
     -- Either owner may break up the couple
     choice SplitUp1: ()

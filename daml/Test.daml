@@ -1,32 +1,135 @@
 module Test where
 import Main
 import Daml.Script
+import qualified DA.Text as T
+import DA.Optional (fromSomeNote)
 
 setup : Script ()
-setup = undefined
+setup = script do
+    public <- createPublic
+    john <- createTestUser $ TestUser "John" public
+    jana <- createTestUser $ TestUser "Jana" public
+    iris <- createTestUser $ TestUser "Iris" public
+
+    jonathan <- submit john do
+      createCmd GuineaPig with
+        name = "Jonathan"
+        id = "0000"
+        owner = john
+        ancestorId = None
+        public
+
+    papa <- submit john do
+      createCmd GuineaPig with
+        name = "Papa"
+        id = "0001"
+        owner = john
+        ancestorId = None
+        public
+
+    muffin <- submit jana do
+      createCmd GuineaPig with
+        name = "Muffin"
+        id = "0002"
+        owner = jana
+        ancestorId = None
+        public
+
+    reqJonathanXmuffin' <- submit john do
+      createCmd CoupleRequest with
+        owner1 = john
+        owner2 = jana
+        animal1 = "0000"
+        animal2 = "0002"
+
+    -- propose that the two guinea pigs should be a couple 
+    reqJonathanXmuffin <- submit john do
+      exerciseCmd reqJonathanXmuffin' ProposeCoupleRequest
+
+    jonathanXmuffin <- submitMulti [jana] [public] do
+      exerciseCmd reqJonathanXmuffin AcceptCoupleRequest
+
+    paulina <- submitMulti [john, jana] [] do
+      exerciseCmd jonathanXmuffin CreateOffspring with
+        animalName = "Paulina"
+        animalId = "0003"
+        public
+
+    -- let's gift paulina to iris
+    submitMulti [john, iris] [] do
+      exerciseCmd paulina ChangeOwner with
+        newOwner = iris
+
+    -- Can't couple Papa with itself
+    submitMustFail john do
+      createCmd CoupleRequest with
+        owner1 = john 
+        owner2 = john
+        animal1 = "0001"
+        animal2 = "0001"
+
+    -- try coupling more guinea pigs
+    reqPapaXmuffin <- submitMulti [john, iris] [] do
+      createCmd CoupleRequest with
+        owner1 = iris
+        owner2 = john
+        animal1 = "0003"
+        animal2 = "0001"
+
+    -- refuse the request
+    submit john do
+      exerciseCmd reqPapaXmuffin RefuseCoupleRequest
+
+    -- unexpected offspring, Papa
+    submit john do
+      exerciseCmd papa UnexpectedOffspring with
+        animalName = "Son"
+        animalId = "0006"
+        public
+
+    -- break up 
+    submit jana do 
+      exerciseCmd jonathanXmuffin SplitUp2
+
+    return ()
 
 
--- do 
---     alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
---     bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
---     charlie <- allocatePartyWithHint "Charlie" (PartyIdHint "Charlie")
+data TestUser = TestUser with
+  alias : Text
+  public : Party
 
---     bobProjectIdea <- submit bob do
---         createCmd ProjectIdea with
---             employee = bob
---             colleague = charlie
---             manager = alice
---             project = "Daml Fundamentals Certification Capstone Rubric - Draft No. 1"
---             note = "Should include both backend AND frontend"
+-- | Create a test user.
+createTestUser : TestUser -> Script Party
+createTestUser TestUser{alias, public} = do
+  u <- getOrCreateUser alias (Some public)
+  let p = getPrimaryParty u
+  pure p
 
---     aliceRejects <- submit alice do 
---         exerciseCmd bobProjectIdea Reject with
---             feedback = "No way, teaching frontend at this point is too much"
-    
---     bobRevises <- submit bob do
---         exerciseCmd aliceRejects Revise with
---             newProject = "Daml Fundamentals Certification Capstone Rubric - Draft No.2"
---             newNote = "Agreed, let's focus on the Daml backend and Navigator"
+-- | Create the public party.
+createPublic : Script Party
+createPublic = do
+  publicUser <- getOrCreateUser "Public" None
+  pure $ getPrimaryParty publicUser
 
---     submit alice do
---         exerciseCmd bobRevises Accept
+
+-- | Get a user by their id. If the user doesn't exist, it is created.
+getOrCreateUser : Text -> Optional Party -> Script User
+getOrCreateUser alias publicM = do
+  userId <- validateUserId $ toUserId alias
+  try
+    getUser userId
+  catch
+    UserNotFound _ -> do
+      p <- allocateParty alias 
+      let u = User userId (Some p)
+      let rights  = CanActAs p :: [CanReadAs public | Some public <- [publicM]]
+      createUser u rights
+      pure u
+
+-- | Convert a text to a valid user id.
+toUserId : Text -> Text
+toUserId = T.asciiToLower
+
+-- | Try to get the primary party of a user and fail if the user has no associated primary party.
+getPrimaryParty : User -> Party
+getPrimaryParty u = fromSomeNote ("User " <> userIdToText u.userId <> " is missing a primary party.") u.primaryParty
