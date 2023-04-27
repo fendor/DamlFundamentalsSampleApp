@@ -1,6 +1,6 @@
-# Guinea Pig Partner and Ancestor App
+# Guinea Pig Partnership and Ancestor App
 Daml templates designed to handle guinea pig ownership and guinea pig offspring production. Two guinea pigs can be paired into couples to produce offspring.
-Couples can be broken up again by either owner, and guinea pigs can be gifted to a different owner if both parties agree to it.
+Couples can be broken up again by their respective owners, and guinea pigs can be gifted to a different owner if both parties agree to it.
 Guinea pigs remember one of their ancestors.
 
 ### I. Overview 
@@ -11,7 +11,7 @@ This project was created by using the `empty-skeleton` template. The project ado
 2. The owner of the other guinea pig (which may be the same owner) can either accept or refuse the request.
 3. Once accepted, the couple may produce offspring which is owned by the party that initiated the pairing.
 4. At any point, the couple may be broken up by either party.
-5. Guinea pigs can produce unexpected offspring, that is offspring from illegitimate partners.
+5. Guinea pigs can produce unexpected offspring, that is offspring with illegitimate partners.
 
 ### III. Challenge(s)
 * Guinea Pigs need to be publically viewable. We have to add a public party and make every user `canReadAs public`. The respective code is taken from `daml new demo1 --template create-daml-app` and simplified.
